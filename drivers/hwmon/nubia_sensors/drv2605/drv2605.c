@@ -718,7 +718,7 @@ static int Haptics_init(struct drv2605_data *pDrv2605data)
 		goto fail4;
 	}
 
-	pDrv2605data->to_dev.name = "vibrator_drv2605";//for compatible
+	pDrv2605data->to_dev.name = "vibrator";//for compatible
 	pDrv2605data->to_dev.get_time = vibrator_get_time;
 	pDrv2605data->to_dev.enable = vibrator_enable;
 
