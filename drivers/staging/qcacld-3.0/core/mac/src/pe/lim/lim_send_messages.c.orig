@@ -62,6 +62,60 @@ static tBeaconFilterIe beacon_filter_table[] = {
 };
 
 /**
+ * lim_send_cf_params()
+ *
+ ***FUNCTION:
+ * This function is called to send CFP Parameters to WMA, when they are changed.
+ *
+ ***LOGIC:
+ *
+ ***ASSUMPTIONS:
+ * NA
+ *
+ ***NOTE:
+ * NA
+ *
+ * @param pMac  pointer to Global Mac structure.
+ * @param bssIdx Bss Index of the BSS to which STA is associated.
+ * @param cfpCount CFP Count, if that is changed.
+ * @param cfpPeriod CFP Period if that is changed.
+ *
+ * @return success if message send is ok, else false.
+ */
+tSirRetStatus lim_send_cf_params(tpAniSirGlobal pMac, uint8_t bssIdx,
+				 uint8_t cfpCount, uint8_t cfpPeriod)
+{
+	tpUpdateCFParams pCFParams = NULL;
+	tSirRetStatus retCode = eSIR_SUCCESS;
+	tSirMsgQ msgQ;
+
+	pCFParams = qdf_mem_malloc(sizeof(tUpdateCFParams));
+	if (NULL == pCFParams) {
+		pe_err("Unable to allocate memory during Update CF Params");
+		retCode = eSIR_MEM_ALLOC_FAILED;
+		goto returnFailure;
+	}
+	pCFParams->cfpCount = cfpCount;
+	pCFParams->cfpPeriod = cfpPeriod;
+	pCFParams->bssIdx = bssIdx;
+
+	msgQ.type = WMA_UPDATE_CF_IND;
+	msgQ.reserved = 0;
+	msgQ.bodyptr = pCFParams;
+	msgQ.bodyval = 0;
+	pe_debug("Sending WMA_UPDATE_CF_IND");
+	MTRACE(mac_trace_msg_tx(pMac, NO_SESSION, msgQ.type));
+	retCode = wma_post_ctrl_msg(pMac, &msgQ);
+	if (eSIR_SUCCESS != retCode) {
+		qdf_mem_free(pCFParams);
+		pe_err("Posting WMA_UPDATE_CF_IND failed, reason=%X",
+			retCode);
+	}
+returnFailure:
+	return retCode;
+}
+
+/**
  * lim_send_beacon_params() - updates bcn params to WMA
  *
  * @pMac                 : pointer to Global Mac structure.
@@ -110,7 +164,7 @@ tSirRetStatus lim_send_beacon_params(tpAniSirGlobal pMac,
 		pe_err("Posting WMA_UPDATE_BEACON_IND, reason=%X",
 			retCode);
 	}
-	lim_send_beacon_ind(pMac, psessionEntry, REASON_DEFAULT);
+	lim_send_beacon_ind(pMac, psessionEntry);
 	return retCode;
 }
 
@@ -587,14 +641,12 @@ tSirRetStatus lim_send_mode_update(tpAniSirGlobal pMac,
 	msgQ.bodyval = 0;
 	pe_debug("Sending WMA_UPDATE_OP_MODE, op_mode %d, sta_id %d",
 			pVhtOpMode->opMode, pVhtOpMode->staId);
-#ifdef LIM_TRACE_RECORD
 	if (NULL == psessionEntry)
 		MTRACE(mac_trace_msg_tx(pMac, NO_SESSION, msgQ.type));
 	else
 		MTRACE(mac_trace_msg_tx(pMac,
 					psessionEntry->peSessionId,
 					msgQ.type));
-#endif
 	retCode = wma_post_ctrl_msg(pMac, &msgQ);
 	if (eSIR_SUCCESS != retCode) {
 		qdf_mem_free(pVhtOpMode);
@@ -624,14 +676,12 @@ tSirRetStatus lim_send_rx_nss_update(tpAniSirGlobal pMac,
 	msgQ.bodyptr = pRxNss;
 	msgQ.bodyval = 0;
 	pe_debug("Sending WMA_UPDATE_RX_NSS");
-#ifdef LIM_TRACE_RECORD
 	if (NULL == psessionEntry)
 		MTRACE(mac_trace_msg_tx(pMac, NO_SESSION, msgQ.type));
 	else
 		MTRACE(mac_trace_msg_tx(pMac,
 					psessionEntry->peSessionId,
 					msgQ.type));
-#endif
 	retCode = wma_post_ctrl_msg(pMac, &msgQ);
 	if (eSIR_SUCCESS != retCode) {
 		qdf_mem_free(pRxNss);
@@ -663,14 +713,12 @@ tSirRetStatus lim_set_membership(tpAniSirGlobal pMac,
 	msgQ.bodyptr = pMembership;
 	msgQ.bodyval = 0;
 	pe_debug("Sending WMA_UPDATE_MEMBERSHIP");
-#ifdef LIM_TRACE_RECORD
 	if (NULL == psessionEntry)
 		MTRACE(mac_trace_msg_tx(pMac, NO_SESSION, msgQ.type));
 	else
 		MTRACE(mac_trace_msg_tx(pMac,
 					psessionEntry->peSessionId,
 					msgQ.type));
-#endif
 	retCode = wma_post_ctrl_msg(pMac, &msgQ);
 	if (eSIR_SUCCESS != retCode) {
 		qdf_mem_free(pMembership);
@@ -701,14 +749,12 @@ tSirRetStatus lim_set_user_pos(tpAniSirGlobal pMac,
 	msgQ.bodyptr = pUserPos;
 	msgQ.bodyval = 0;
 	pe_debug("Sending WMA_UPDATE_USERPOS");
-#ifdef LIM_TRACE_RECORD
 	if (NULL == psessionEntry)
 		MTRACE(mac_trace_msg_tx(pMac, NO_SESSION, msgQ.type));
 	else
 		MTRACE(mac_trace_msg_tx(pMac,
 					psessionEntry->peSessionId,
 					msgQ.type));
-#endif
 	retCode = wma_post_ctrl_msg(pMac, &msgQ);
 	if (eSIR_SUCCESS != retCode) {
 		qdf_mem_free(pUserPos);
