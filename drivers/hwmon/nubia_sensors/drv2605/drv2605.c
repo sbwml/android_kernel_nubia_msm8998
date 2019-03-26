@@ -56,6 +56,8 @@
 	#define drv26xx_debug(format , ...)
 #endif
 
+static int vtg_strength = 127;
+
 static struct drv2605_data *pDRV2605data = NULL;
 
 static struct drv2605_platform_data  drv2605_plat_data = {
@@ -79,6 +81,38 @@ static struct drv2605_platform_data  drv2605_plat_data = {
 			.a2h_min_output = AUDIO_HAPTICS_MIN_OUTPUT_VOLTAGE,
 			.a2h_max_output = AUDIO_HAPTICS_MAX_OUTPUT_VOLTAGE,
 			},
+};
+
+static ssize_t drv2605_vtg_level_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", vtg_strength);
+}
+
+static ssize_t drv2605_vtg_level_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int rc, val;
+
+	rc = kstrtoint(buf, 10, &val);
+	if (rc) {
+		pr_err("%s: error getting strength\n", __func__);
+		return -EINVAL;
+	}
+	
+	val = val < 0 ? 0 : val;
+    val = val > 127 ? 127 : val;
+
+	vtg_strength = val;
+
+	return strnlen(buf, count);
+}
+
+//static DEVICE_ATTR(vtg_level, S_IRUGO | S_IWUSR, drv2605_vtg_level_show, drv2605_vtg_level_store);
+
+static struct device_attribute timed_dev_attr_group[] = {
+	__ATTR(vtg_level, S_IRUGO | S_IWUSR, drv2605_vtg_level_show, drv2605_vtg_level_store),
 };
 
 static int drv2605_reg_read(struct drv2605_data *pDrv2605data, unsigned int reg)
@@ -355,7 +389,7 @@ static void vibrator_enable( struct timed_output_dev *dev, int value)
 		}
 
 		drv2605_change_mode(pDrv2605data, WORK_VIBRATOR, DEV_READY);
-		drv2605_set_rtp_val(pDrv2605data,  0x7f);
+		drv2605_set_rtp_val(pDrv2605data,  vtg_strength);
 		pDrv2605data->vibrator_is_playing = YES;
 		switch_set_state(&pDrv2605data->sw_dev, SW_STATE_RTP_PLAYBACK);
 
@@ -727,6 +761,12 @@ static int Haptics_init(struct drv2605_data *pDrv2605data)
 		drv26xx_debug(KERN_ALERT"drv2605: fail to create timed output dev\n");
 		goto fail3;
 	}
+	
+    if (sysfs_create_file(&pDrv2605data->to_dev.dev->kobj,
+				&timed_dev_attr_group[0].attr) < 0) {
+        drv26xx_debug(KERN_ALERT"drv2605: fail to create strength tunables\n");
+        goto fail3;
+    }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	//   pDrv2605data->early_suspend.suspend = drv2605_early_suspend;
